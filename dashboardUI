@@ -1,0 +1,1017 @@
+# DASHBOARD SCRIPT
+library(lubridate)
+library(base)
+library(dplyr)
+library(ggplot2)
+library(shiny)
+library(shinydashboard)
+library(leaflet)
+library(forecast)
+library(xts)
+library(DT)
+
+sidebar<-dashboardSidebar(sidebarMenu(
+  menuItem("Data Cleaning", tabName = "dataclean", icon = icon("trash"),
+       	menuSubItem("Perform Data Cleaning", tabName = "datacleaning")
+  ),
+  menuItem("Visual Analysis", icon = icon("bar-chart-o"),
+       	menuSubItem("Victim Based", tabName = "byas"),
+       	menuSubItem("By Time", tabName = "bytime"),
+       	menuSubItem("By Premise",tabName="premise"),
+       	menuSubItem("Misc.",tabName="misc")
+  ),
+  menuItem("Maps",tabName="maps",icon = icon("map")),
+  menuItem("Prediction", tabName = "prediction", icon = icon("asterisk"))
+))
+
+
+
+body<-dashboardBody(
+  tabItems(
+	# First tab content
+	tabItem(tabName = "datacleaning",
+        	fluidRow(
+          	h2("  The Crime Data"),
+          	DT::dataTableOutput("mytable")
+        	),
+        	fluidRow(
+          	h2("  Stats"),
+          	DT::dataTableOutput("result")
+        	),
+        	# fluidRow(
+        	#   h2("Stats"),
+        	#   p("Victim Sex : ",textOutput("result"))
+        	# ),
+        	#   	p("Victim Sex : ",textOutput("result")),
+        	#   	p("Victim Sex : ",textOutput("result")),
+        	#   	p("Victim Sex : ",textOutput("result"))
+        	#   	),
+        	fluidRow( actionButton("do", "Perform Data Cleaning")
+        	),
+        	fluidRow( actionButton("doagain", "Get Stats")
+        	)
+	),
+    
+	# Second tab content
+	tabItem(tabName = "prediction",
+        	fluidRow(box(width = 12,plotOutput("pred_arima")))
+	),
+	tabItem(tabName = "bytime",
+        	fluidRow(
+          	box(title="Day Wise Incidents Reported",
+              	solidHeader = TRUE,status = "primary",width=4,collapsible = TRUE,collapsed = TRUE,
+              	checkboxGroupInput("year1", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+                                 	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),h5("This graph plots the count of incidents reported on various days of week. It is observed that Friday and Saturday top the chart whereas Sunday is at the bottom.")
+          	),
+          	box(title="Most Crimes Time Wise",
+              	solidHeader = TRUE,status = "primary",width=4,collapsible = TRUE,collapsed = TRUE,
+              	checkboxGroupInput("year2", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+                                 	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),h5("This graph plots the hours of day during which most crimes are reported. It is seen that maximum incidents are reported at 12 noon which is quite peculiar. Also, evening hours from 5:00 pm to 10:00 pm are most dangerous.")
+          	),
+          	box(title="Least Crimes with its Code",
+              	solidHeader = TRUE,status = "primary",width=4,collapsible = TRUE,collapsed = TRUE,
+              	checkboxGroupInput("year3", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+                                 	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),h5("This graph plots the hours of day during which least crimes are reported. It is observed that the morning hours from 4:30 to 7:30 are the safest.")
+          	)
+        	),
+        	# box(title="Count of incidents and sex",
+        	# 	solidHeader = TRUE,status = "primary",width=4,collapsible = TRUE,collapsed = TRUE,
+        	# 	checkboxGroupInput("years", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+        	#                    	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),h5("This bar graph plots the count of crimes committed against various genders. It is evident that there were more male victims than any other sex.")
+        	# ),
+        	fluidRow(
+          	box(width=4,plotOutput("graph")),box(width=4,plotOutput("bytime_most")),box(width=4,plotOutput("bytime_least"))
+        	),
+        	fluidRow(
+          	box(title="Crime Incidents Reported Highest",
+              	solidHeader = TRUE,status = "primary",width=12,collapsible = TRUE,collapsed = TRUE,
+              	checkboxGroupInput("year4", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+                                 	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),h5("This graph elaborates the types of crime which happen at 12 noon(being the hour with most incidents). It can be noted that theft of identity is the most reported crime.")
+          	)
+        	),
+        	fluidRow(box(width=12,solidHeader = TRUE, status = "primary",plotOutput("bytime_at12")))
+	),
+    
+	tabItem(tabName = "byas",
+        	fluidRow(
+          	box(title="Count of incidents and sex",
+              	solidHeader = TRUE,status = "primary",width=4,collapsible = TRUE,collapsed = TRUE,
+              	checkboxGroupInput("years", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+                                 	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),h5("This bar graph plots the count of crimes committed against various genders. It is evident that there were more male victims than any other sex.")
+          	),
+          	box(title="Age, Sex and Crimes",
+              	solidHeader = TRUE,status = "primary",width=8,collapsible = TRUE,collapsed = TRUE,
+              	checkboxGroupInput("years1", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+                                 	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),sliderInput("age", "Select Age Range:",
+                                                                                                                    	min = 0, max = 100,
+                                                                                                                    	value = c(0,100), step = 5,sep = ""),h5("The above plots first segregates the incidents reported on basis of the gender of victim i.e. male and female. Furthermore it shows how the various age groups are affected. It can be observed that most victims are around the age 20 to 30. Also, females are more victimised in the aforementioned age group.")
+          	)
+         	 
+        	),
+        	fluidRow(
+          	box(width = 4,plotOutput("byas_sex")),box(width = 8,plotOutput("byas_agesex"))
+        	),
+        	fluidRow(
+          	#box(title="Count of Incidents and Sex and Crime Description",
+          	#   solidHeader = TRUE,status = "primary",width=6,collapsible = TRUE,collapsed = TRUE,
+          	#                 	h5("This graph visualises the distribution of the type of crimes committed against males and females. It can be seen that the category 'Intimate Partner- Simple Assault' which is prevalent in females is absent for males. Moreover, males are majorly the victims of theft and burglary.")
+          	#),
+          	box(title="Count of Incidents and Sex and Crime Description for Persons 70 and above",
+              	solidHeader = TRUE,status = "primary",width=12,collapsible = TRUE,collapsed = TRUE, numericInput("ageinp","Enter age: ",70,min = 10,max = 99,step = 1),
+              	h5("The above graph visualises the type of crimes committed against males and females who are above 70 years of age. It can be concluded that burglary and theft of identity are prevalent in this case.")
+          	)
+        	),
+        	fluidRow(
+          	#box(width = 6,plotOutput("byas_sexdesc")),
+          	box(width = 12,plotOutput("byas_above70"))
+        	),
+        	fluidRow(
+          	box(title="Count of Incidents and VictimDescent",
+              	solidHeader = TRUE,status = "primary",width=6,collapsible = TRUE,collapsed = TRUE,
+              	checkboxGroupInput("years2", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+                                 	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),sliderInput("age", "Select Age Range:",
+                                                                                                                    	min = 0, max = 100,
+                                                                                                                    	value = c(0,100), step = 5,sep = ""),
+              	h5("This plot examines the counts of incidents reported against people belonging to various ethnicities. It is observed that Hispanics are the most affected sect of people followed by whites and then blacks.")
+          	),
+          	box(title="Count of Incidents and Sex and Weapon Used",
+              	solidHeader = TRUE,status = "primary",width=6,collapsible = TRUE,collapsed = TRUE,
+              	h5("This graph typically shows that bodily force is prevalent in both Males and Females. However, it is evident that women are more prone to be affected from bodily force than men and men are more prone to be affected from the usage of firearms.")
+          	)
+        	),
+        	fluidRow(
+          	box(width=6,plotOutput("byas_descentcount")),box(width=6,plotOutput("byas_sexweapon"))
+        	)
+	),
+    
+	tabItem(tabName = "maps",
+        	fluidRow(box(width=12,title = "Count of Incidents and Weapon Description",collapsible = TRUE,collapsed = TRUE,solidHeader = TRUE,status = "primary",
+                     	checkboxGroupInput("yearsm", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+                                        	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),
+                     	h5("All the crime incidents have been plooted on the map of Los Angeles as dots."))),
+        	fluidRow(
+         	 
+          	box(width = 12,leafletOutput("maps_heat"))
+        	)
+	),
+	tabItem(tabName = "premise",
+        	fluidRow(box(width=12,title = "Count of Incidents and Premise Description",collapsible = TRUE,collapsed = TRUE,solidHeader = TRUE,status = "primary",checkboxGroupInput("year5", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+                                                                                                                                                                                	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),selectInput("topn1","Select the top n:",c("3","5","7","10"),selected = 10,multiple = FALSE),h5("This graph plots the count of incidents reported at various premises. It is quite clear that streets, single family dwelling properties and multi family dwelling properties are most severely affected. Whereas drug stores, alleys and high schools account for the lowest number of incidents."))),
+        	fluidRow(
+          	box(width = 12,plotOutput("premise_count"))
+        	),
+        	fluidRow(
+          	box(title="Premise Description & Crime Description",
+              	solidHeader = TRUE,status = "primary",width=12,collapsible = TRUE,collapsed = TRUE,
+              	checkboxGroupInput("year6", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"),
+                                 	selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),h5("This graph further decomposes the crime incidents for the top five most affected premises. It is seen that vehicle stealing and theft from vehicles are the most common crimes that occur on streets.")
+          	)
+        	),
+        	fluidRow(
+          	box(width = 12,plotOutput("premise_desc"))
+        	)
+	),
+    
+	tabItem(tabName="misc",
+        	fluidRow(box(width=12,title = "Count of Incidents and Weapon Description",collapsible = TRUE,collapsed = TRUE,solidHeader = TRUE,status = "primary",selectInput("topn","Select the top n:",c("5","10","15","20","25"),selected = 10,multiple = FALSE),h5("This graph shows the most used weapons. It is evident that bodily force like hands and fists are most used. These are followed by verbal threats."))),
+        	fluidRow(box(width=12,plotOutput("misc_weapon"))),
+        	fluidRow(box(width=12,title = "Crime Trend Over the years",collapsible = TRUE,collapsed = TRUE,solidHeader = TRUE,status = "primary",sliderInput("yearsr", "Select Year Range:",
+                                                                                                                                                         	min = 2010, max = 2017,
+                                                                                                                                                         	value = c(2010,2017), step = 1,sep = ""),h5("This graph analyses the trend of crimes reported over the years. While the graph shows a dip during 2014, there has been a steady increase in crimes since then."))),
+        	fluidRow(box(width = 12,plotOutput("misc_trend")))
+	)
+    
+  ))
+
+
+
+
+ui <- dashboardPage(
+  dashboardHeader(title = "APAAR"),
+  sidebar,
+  body
+)
+
+server <- function(input, output) {
+  set.seed(122)
+  histdata <- rnorm(500)
+ 
+  observeEvent(input$do, {
+	output$mytable = DT::renderDataTable({
+  	crimedatanew
+	})
+  })
+  observeEvent(input$doagain, {
+	output$result = DT::renderDataTable({
+  	CleanedDatasetStats
+	})
+	#   output$result = DT::renderDataTable({
+	#   CleanedDatasetStats
+	# })
+  })
+  output$result = DT::renderDataTable({
+	OriginalCrimeStats
+  })
+  output$mytable = DT::renderDataTable({
+	Crime_Data_2010_2017
+  })
+ 
+  output$plot1 <- renderPlot({
+	data <- histdata[seq_len(input$slider)]
+	hist(data)
+  })
+  output$graph<-renderPlot(
+    
+	{Crime_Data_2010_2017$DayOfCrime =  wday(mdy(Crime_Data_2010_2017$`Date Occurred`),label = TRUE)
+    
+	Crime_Data_2010_2017 %>%
+  	filter(`DOYear` %in% input$year1) %>%
+  	group_by(DayOfCrime) %>%
+  	summarise(CountIncidents = n()) %>%
+  	mutate(DayOfCrime = reorder(DayOfCrime,CountIncidents)) %>%
+ 	 
+  	ggplot(aes(x = DayOfCrime,y = CountIncidents)) +
+  	geom_bar(stat='identity',colour="white", fill ="steelblue") +
+  	geom_text(aes(x = DayOfCrime, y = 1, label = paste0("(",CountIncidents,")",sep="")),
+            	hjust=0, vjust=.5, size = 4, colour = 'white',
+            	fontface = 'bold') +
+  	labs(x = 'Day Of Crime', y = 'Count of Incidents',
+       	title = 'Day wise') +
+  	coord_flip() +
+  	theme_bw()})
+ 
+  output$bytime_most<-renderPlot({Crime_Data_2010_2017 %>%
+  	filter(`DOYear` %in% input$year2) %>%
+  	group_by(`Time Occurred`) %>%
+  	summarise(CountIncidents = n()) %>%
+  	arrange(desc(CountIncidents)) %>%
+
+
+
+  	mutate(`Time Occurred` = as.integer(`Time Occurred`)) %>%
+  	mutate(`Time Occurred` = reorder(`Time Occurred`,CountIncidents)) %>%
+  	head(10) %>%
+ 	 
+  	ggplot(aes(x = `Time Occurred`,y = CountIncidents)) +
+  	geom_bar(stat='identity',colour="white",fill="steelblue") +
+  	geom_text(aes(x = `Time Occurred`, y = 1, label = paste0("(",CountIncidents,")",sep="")),
+            	hjust=0, vjust=.5, size = 4, colour = 'white',
+            	fontface = 'bold') +
+  	labs(x = 'Time Of Crime', y = 'Count of Incidents',
+       	title = 'Most Crimes') +
+  	coord_flip() +
+  	theme_bw()})
+ 
+  output$bytime_least<-renderPlot({Crime_Data_2010_2017 %>%
+  	filter(`DOYear` %in% input$year3) %>%
+  	group_by(`Time Occurred`) %>%
+  	summarise(CountIncidents = n()) %>%
+  	arrange(desc(CountIncidents)) %>%
+  	mutate(`Time Occurred` = as.integer(`Time Occurred`)) %>%
+  	mutate(`Time Occurred` = reorder(`Time Occurred`,CountIncidents)) %>%
+  	tail(10) %>%
+ 	 
+  	ggplot(aes(x = `Time Occurred`,y = CountIncidents)) +
+  	geom_bar(stat='identity',colour="white", fill ="steelblue") +
+  	geom_text(aes(x = `Time Occurred`, y = 1, label = paste0("(",CountIncidents,")",sep="")),
+            	hjust=0, vjust=.5, size = 4, colour = 'white',
+            	fontface = 'bold') +
+  	labs(x = 'Time Of Crime', y = 'Count of Incidents',
+       	title = 'Least Crimes') +
+  	coord_flip() +
+  	theme_bw()})
+ 
+ 
+  output$bytime_at12 <- renderPlot({Crime_Data_2010_2017 %>%
+  	filter(`Time Occurred` == 1200) %>%
+  	filter(`DOYear` %in% input$year4) %>%
+  	group_by(`Crime Code Description`) %>%
+  	summarise(CountIncidents = n()) %>%
+  	arrange(desc(CountIncidents)) %>%
+  	mutate(`Crime Code Description` = reorder(`Crime Code Description`,CountIncidents)) %>%
+  	head(10) %>%
+ 	 
+  	ggplot(aes(x = `Crime Code Description`,y = CountIncidents)) +
+  	geom_bar(stat='identity',colour="white", fill = "steelblue") +
+  	geom_text(aes(x = `Crime Code Description`, y = 1, label = paste0("(",CountIncidents,")",sep="")),
+            	hjust=0, vjust=.5, size = 4, colour = 'white',
+            	fontface = 'bold') +
+  	labs(x = 'Time Of Crime', y = 'Count of Incidents',
+       	title = 'Type of Crime at 1200 hrs') +
+  	coord_flip() +
+  	theme_bw()})
+ 
+  output$byas_sex<- renderPlot({Crime_Data_2010_2017 %>%
+  	filter(!is.na(`Victim Sex`)) %>%
+  	filter(`DOYear` %in% input$years) %>%
+  	group_by(`Victim Sex`) %>%
+  	tally() %>%
+  	ungroup() %>%
+  	mutate(`Victim Sex` = reorder(`Victim Sex`,n)) %>%
+ 	 
+  	ggplot(aes(x = `Victim Sex`,y = n)) +
+  	geom_bar(stat='identity',colour="white", fill ="steelblue") +
+  	geom_text(aes(x = `Victim Sex`, y = 1, label = paste0("(",n,")",sep="")),
+            	hjust=0, vjust=.5, size = 4, colour = 'black',
+            	fontface = 'bold') +
+  	labs(x = 'Sex', y = 'Count of Incidents',
+       	title = 'Count of Incidents and Sex') +
+  	coord_flip() +
+  	theme_bw()})
+ 
+  output$byas_agesex<-renderPlot({breaks = seq(0,100,5)
+ 
+  ListSex = c("M","F")
+ 
+  Crime_Data_2010_2017 %>%
+	filter(`DOYear` %in% input$years1) %>%
+	filter( `Victim Sex` %in% ListSex ) %>%
+	ggplot(aes(`Victim Age`)) +
+	geom_histogram(binwidth = 5,fill = "steelblue") +
+	facet_wrap(~ `Victim Sex`) +
+	scale_x_continuous(limits = c(input$age[1], input$age[2]),breaks=breaks ) +
+	labs(x = 'Victim Age', y = 'Count of Crimes',
+     	title = 'Age , Sex and Crimes') +
+	theme_bw()})
+ 
+  output$byas_sexdesc<-renderPlot({Crime_Data_2010_2017 %>%
+  	filter(!is.na(`Victim Sex`)) %>%
+  	group_by(`Victim Sex`,`Crime Code Description`) %>%
+  	tally() %>%
+  	ungroup() %>%
+  	mutate(`Victim Sex` = reorder(`Victim Sex`,n)) %>%
+  	arrange(desc(n)) %>%
+  	head(10) %>%
+ 	 
+  	ggplot(aes(x = `Victim Sex`,y = n, fill =`Crime Code Description`)) +
+  	geom_bar(stat='identity') +
+  	labs(x = 'Sex and Crime Description', y = 'Count of Incidents',
+       	title = 'Count of Incidents and Sex and Crime Description') +
+  	coord_flip() +
+  	theme_bw() + theme(legend.position="top")
+  })
+ 
+  output$byas_above70<-renderPlot({Crime_Data_2010_2017 %>%
+  	filter(!is.na(`Victim Sex`)) %>%
+  	filter(`Victim Age` >= input$ageinp) %>%
+  	group_by(`Victim Sex`,`Crime Code Description`) %>%
+  	tally() %>%
+  	ungroup() %>%
+  	mutate(`Victim Sex` = reorder(`Victim Sex`,n)) %>%
+  	arrange(desc(n)) %>%
+  	head(10) %>%
+ 	 
+  	ggplot(aes(x = `Victim Sex`,y = n,fill = `Crime Code Description`)) +
+  	geom_bar(stat='identity') +
+  	labs(x = 'Sex and Crime Description', y = 'Count of Incidents',
+       	title = 'Count of Incidents and Sex and Crime Description for Persons 70 and above') +
+  	coord_flip() +
+  	theme_bw() + theme(legend.position="top")})
+ 
+  output$maps_heat<-renderLeaflet({
+	center_lon = median(Crime_Data_2010_2017$longitude,na.rm = TRUE)
+	center_lat = median(Crime_Data_2010_2017$latitude,na.rm = TRUE)
+    
+	LACrimeSample = Crime_Data_2010_2017 %>% sample_n(50e3)
+    
+	leaflet(LACrimeSample) %>% addProviderTiles("Esri.NatGeoWorldMap") %>%
+  	addCircles(lng = ~longitude, lat = ~latitude,
+             	color = c("red"))  %>%
+  	# controls
+  	setView(lng=center_lon, lat=center_lat, zoom=10)
+  })
+ 
+  output$premise_count<- renderPlot({Crime_Data_2010_2017 %>%
+  	filter(!is.na(`Premise Description`)) %>%
+  	filter(`DOYear` %in% input$year5) %>%
+  	group_by(`Premise Description`) %>%
+  	tally() %>%
+  	ungroup() %>%
+  	arrange(desc(n)) %>%
+  	head(input$topn1) %>%
+  	mutate(`Premise Description` = reorder(`Premise Description`,n)) %>%
+ 	 
+  	ggplot(aes(x = `Premise Description`,y = n)) +
+  	geom_bar(stat='identity',colour="white", fill ="steelblue") +
+  	geom_text(aes(x = `Premise Description`, y = 1, label = paste0("(",n,")",sep="")),
+            	hjust=0, vjust=.5, size = 4, colour = 'black',
+            	fontface = 'bold') +
+  	labs(x = 'PremiseDescription', y = 'Count of Incidents',
+       	title = 'Count of Incidents and PremiseDescription') +
+  	coord_flip() +
+  	theme_bw()
+  })
+ 
+  output$premise_desc<-renderPlot({Crime_Data_2010_2017 %>%
+  	filter(!is.na(`Premise Description`)) %>%
+  	filter(`DOYear` %in% input$year6) %>%
+  	group_by(`Premise Description`,`Crime Code Description`) %>%
+  	tally() %>%
+  	ungroup() %>%
+  	mutate(`Premise Description` = reorder(`Premise Description`,n)) %>%
+  	arrange(desc(n)) %>%
+  	head(10) %>%
+ 	 
+  	ggplot(aes(x = `Premise Description`,y = n, fill =`Crime Code Description`)) +
+  	geom_bar(stat='identity') +
+  	labs(x = 'Premise Description and Crime Description', y = 'Count of Incidents',
+       	title = 'Count of Incidents and Premise Description and Crime Description') +
+  	coord_flip() +
+  	theme_bw()})
+ 
+  output$misc_weapon<-renderPlot({Crime_Data_2010_2017 %>%
+  	filter(!is.na(`Weapon Description`)) %>%
+  	group_by(`Weapon Description`) %>%
+  	tally() %>%
+  	ungroup() %>%
+  	arrange(desc(n)) %>%
+  	head(input$topn) %>%
+  	mutate(`Weapon Description` = reorder(`Weapon Description`,n)) %>%
+ 	 
+  	ggplot(aes(x = `Weapon Description`,y = n)) +
+  	geom_bar(stat='identity',colour="white", fill ="steelblue") +
+  	geom_text(aes(x = `Weapon Description`, y = 1, label = paste0("(",n,")",sep="")),
+            	hjust=0, vjust=.5, size = 4, colour = 'black',
+            	fontface = 'bold') +
+  	labs(x = 'Weapon Description', y = 'Count of Incidents',
+       	title = 'Count of Incidents and Weapon Description') +
+  	coord_flip() +
+  	theme_bw()})
+ 
+  output$byas_descentcount<-renderPlot({VictimDescentAbbr = c("A","B","C","D","F","G","H","I","J","K","L","O","P","S","U","V","W","X","Z")
+  VictimDescentDescription = c("Other Asian","Black",
+                           	"Chinese","Cambodian","Filipino",
+                           	"Guamanian","Hispanic/Latin/Mexican",
+                           	"American Indian/Alaskan Native",
+                           	"Japanese","Korean","Laotian ",
+                           	"Other","Pacific Islander",
+                           	"Samoan","Hawaiian","Vietnamese",
+                           	"White","Unknown","AsianIndian")
+ 
+  VictimDescentFull = data.frame(`Victim Descent` = as.character(VictimDescentAbbr),
+                             	VictimDescentDescription = as.character(VictimDescentDescription))
+  colnames(VictimDescentFull)=c("Victim Descent","VictimDescentDescription")
+  Crime_Data_2010_2017$`Victim Descent` = as.character(Crime_Data_2010_2017$`Victim Descent`)
+  Crime_Data_2010_2017 %>%
+	filter(!is.na(`Victim Descent`)) %>%
+	filter(`DOYear` %in% input$years2) %>%
+	group_by(`Victim Descent`) %>%
+	tally() %>%
+	ungroup() %>%
+	arrange(desc(n)) %>%
+	inner_join(VictimDescentFull) %>%
+	head(10) %>%
+	mutate(VictimDescentDescription = reorder(VictimDescentDescription,n)) %>%
+    
+	ggplot(aes(x = VictimDescentDescription,y = n)) +
+	geom_bar(stat='identity',colour="white", fill ="steelblue") +
+	geom_text(aes(x = VictimDescentDescription, y = 1, label = paste0("(",n,")",sep="")),
+          	hjust=0, vjust=.5, size = 4, colour = 'black',
+          	fontface = 'bold') +
+	labs(x = 'VictimDescent', y = 'Count of Incidents',
+     	title = 'Count of Incidents and VictimDescent') +
+	coord_flip() +
+	theme_bw()
+  })
+ 
+  output$misc_trend<-renderPlot({LACrimeGroup = Crime_Data_2010_2017 %>%
+	filter(DOYear >= input$yearsr[1]) %>%
+	filter(DOYear < input$yearsr[2]) %>%
+	mutate(year_month = make_date(year=year(mdy(`Date Occurred`)),month=month(mdy(`Date Occurred`))) ) %>%
+	filter(!is.na(year_month)) %>%
+	group_by(year_month) %>% summarize(CountCrimes = n())
+ 
+  LACrimeGroup %>% filter(year_month != "2017-09-01") %>%
+    
+	ggplot(aes(x=year_month,y=CountCrimes)) +
+	geom_line(size=.5, color="red")+geom_point(size=2, color="red")+
+	labs(x = 'Year', y = 'Count of Incidents',
+     	title = 'Crime Trend Over the years') +
+	theme_bw()
+  })
+ 
+ 
+  output$pred_arima<-renderPlot({LACrimeGroupBatterySA = Crime_Data_2010_2017 %>%
+	filter(`Crime Code` == 624) %>%
+	mutate(year_month = make_date(year=year(mdy(`Date Occurred`)),month=month(mdy(`Date Occurred`))) ) %>%
+    
+	filter(!is.na(year_month)) %>%
+	filter(year_month != "2017-09-01") %>%
+    
+	group_by(year_month) %>%
+	summarize(CountCrimes = n())
+  CountOfCrimes = ts(LACrimeGroupBatterySA$CountCrimes)
+ 
+  fit = auto.arima(CountOfCrimes,stepwise=FALSE, approximation=FALSE)
+ 
+  predictions = fit %>% forecast(h=4)
+ 
+  predictions %>% autoplot(include=80) +theme_bw()
+ 
+  })
+ 
+  output$byas_sexweapon<-renderPlot({Crime_Data_2010_2017 %>%
+ 	 
+  	filter(!is.na(`Victim Sex`)) %>%
+  	filter(!is.na(`Weapon Description`)) %>%
+  	group_by(`Victim Sex`,`Weapon Description`) %>%
+  	tally() %>%
+  	ungroup() %>%
+  	mutate(`Victim Sex` = reorder(`Victim Sex`,n)) %>%
+  	arrange(desc(n)) %>%
+  	head(10) %>%
+  	ggplot(aes(x = `Victim Sex`,y = n, fill =`Weapon Description`)) +
+  	geom_bar(stat='identity') +
+  	labs(x = 'Sex and Weapon Description', y = 'Count of Incidents',
+       	title = 'Count of Incidents and Sex and Weapon Used Description') +
+  	coord_flip() +
+  	theme_bw() + theme(legend.position="top")
+  })
+ 
+}
+
+shinyApp(ui, server)
+
+
+
+Dashboard with map
+library(lubridate)
+library(base)
+library(dplyr)
+library(ggplot2)
+library(shiny)
+library(shinydashboard)
+library(leaflet)
+library(forecast)
+library(xts)
+library(DT)
+
+sidebar<-dashboardSidebar(sidebarMenu(
+  menuItem("Data Cleaning", tabName = "dataclean", icon = icon("trash"),
+           menuSubItem("Perform Data Cleaning", tabName = "datacleaning")
+  ),
+  menuItem("Visual Analysis", icon = icon("bar-chart-o"),
+           menuSubItem("Victim Based", tabName = "byas"),
+           menuSubItem("By Time", tabName = "bytime"),
+           menuSubItem("By Premise",tabName="premise"),
+           menuSubItem("Misc.",tabName="misc")
+  ),
+  menuItem("Maps",tabName="maps",icon = icon("map")),
+  menuItem("Prediction", tabName = "prediction", icon = icon("asterisk"))
+))
+
+
+
+body<-dashboardBody(
+  tabItems(
+    # First tab content
+    tabItem(tabName = "datacleaning",
+            fluidRow(
+              h2("The Crime Data"),
+              DT::dataTableOutput("mytable")
+            ),
+            fluidRow( actionButton("do", "Perform Data Cleaning")
+            )
+    ),
+    
+    # Second tab content
+    tabItem(tabName = "prediction",
+            fluidRow(box(width = 12,plotOutput("pred_arima")))
+    ),
+    tabItem(tabName = "bytime",
+            fluidRow(
+              box( title = "Day Wise Incidents Reported",width=4,solidHeader = TRUE, status = "primary",plotOutput("graph")),box(width=4,plotOutput("bytime_most")),box(width=4,plotOutput("bytime_least"))
+            ),
+            fluidRow(
+              box(title="Description",width = 4,solidHeader = TRUE, status = "primary",collapsible = TRUE,collapsed = TRUE,"This graph plots the count of incidents reported on various days of week. It is observed that Friday and Saturday top the chart whereas Sunday is at the bottom."),
+              box(title="Description",width = 4,solidHeader = TRUE, status = "primary",collapsible = TRUE,collapsed = TRUE," This graph plots the hours of day during which most crimes are reported. It is seen that maximum incidents are reported at 12 noon which is quite peculiar. Also, evening hours from 5:00 pm to 10:00 pm are most dangerous."),
+              box(title="Description",width = 4,solidHeader = TRUE, status = "primary",collapsible = TRUE,collapsed = TRUE,"This graph plots the hours of day during which least crimes are reported. It is observed that the morning hours from 4:30 to 7:30 are the safest.")
+            ),
+            fluidRow(box(title = "Day Wise Incidents Reported",width=12,solidHeader = TRUE, status = "primary",plotOutput("bytime_at12"))),
+            fluidRow(
+              box(title="Description",width = 12,solidHeader = TRUE, status = "primary",collapsible = TRUE,collapsed = TRUE,"This graph elaborates the types of crime which happen at 12 noon(being the hour with most incidents). It can be noted that theft of identity is the most reported crime.")
+             )
+    ),
+    
+    tabItem(tabName = "byas",
+            fluidRow(
+              box(title="Count of incidents and sex",
+                  solidHeader = TRUE,status = "primary",width=4,collapsible = TRUE,collapsed = TRUE,
+                  checkboxGroupInput("years", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"), 
+                                     selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),h5("This bar graph plots the count of crimes committed against various genders. It is evident that there were more male victims than any other sex.")
+                  ),
+              box(title="Age, Sex and Crimes",
+                  solidHeader = TRUE,status = "primary",width=8,collapsible = TRUE,collapsed = TRUE,
+                  checkboxGroupInput("years1", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"), 
+                                     selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),h5("The above plots first segregates the incidents reported on basis of the gender of victim i.e. male and female. Furthermore it shows how the various age groups are affected. It can be observed that most victims are around the age 20 to 30. Also, females are more victimised in the aforementioned age group.")
+              )
+              
+            ),
+            fluidRow(
+              box(width = 4,plotOutput("byas_sex")),box(width = 8,plotOutput("byas_agesex"))
+            ),
+            fluidRow(
+              #box(title="Count of Incidents and Sex and Crime Description",
+               #   solidHeader = TRUE,status = "primary",width=6,collapsible = TRUE,collapsed = TRUE,
+                #                     h5("This graph visualises the distribution of the type of crimes committed against males and females. It can be seen that the category 'Intimate Partner- Simple Assault' which is prevalent in females is absent for males. Moreover, males are majorly the victims of theft and burglary.")
+              #),
+              box(title="Count of Incidents and Sex and Crime Description for Persons 70 and above",
+                  solidHeader = TRUE,status = "primary",width=12,collapsible = TRUE,collapsed = TRUE, numericInput("ageinp","Enter age: ",70,min = 10,max = 99,step = 1),
+                  h5("The above graph visualises the type of crimes committed against males and females who are above 70 years of age. It can be concluded that burglary and theft of identity are prevalent in this case.")
+              )
+            ),
+            fluidRow(
+              #box(width = 6,plotOutput("byas_sexdesc")),
+              box(width = 12,plotOutput("byas_above70"))
+            ),
+            fluidRow(
+              box(title="Count of Incidents and VictimDescent",
+                  solidHeader = TRUE,status = "primary",width=6,collapsible = TRUE,collapsed = TRUE,
+                  checkboxGroupInput("years2", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"), 
+                                     selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),sliderInput("age", "Select Age Range:",
+                                                                                                                        min = 0, max = 100,
+                                                                                                                        value = c(0,100), step = 5,sep = ""),
+                  h5("This plot examines the counts of incidents reported against people belonging to various ethnicities. It is observed that Hispanics are the most affected sect of people followed by whites and then blacks.")
+              ),
+              box(title="Count of Incidents and Sex and Weapon Used",
+                  solidHeader = TRUE,status = "primary",width=6,collapsible = TRUE,collapsed = TRUE,
+                  h5("This graph typically shows that bodily force is prevalent in both Males and Females. However, it is evident that women are more prone to be affected from bodily force than men and men are more prone to be affected from the usage of firearms.")
+              )
+            ),
+            fluidRow(
+              box(width=6,plotOutput("byas_descentcount")),box(width=6,plotOutput("byas_sexweapon"))
+            )
+    ),
+    
+    tabItem(tabName = "maps",
+            fluidRow(box(width=12,title = "Count of Incidents and Weapon Description",collapsible = TRUE,collapsed = TRUE,solidHeader = TRUE,status = "primary",
+                         checkboxGroupInput("yearsm", "Select Years: ", inline = TRUE,c("2010","2011","2012","2013","2014","2015","2016","2017"), 
+                                            selected = c("2010","2011","2012","2013","2014","2015","2016","2017")),
+                         h5("Crime incidents have been plotted on the map of Los Angeles."))),
+            fluidRow(
+              box(width = 12,leafletOutput("maps_heat"))
+            )
+    ),
+    tabItem(tabName = "premise",
+            fluidRow(
+              box(width = 12,plotOutput("premise_count"))
+            ),
+            fluidRow(
+              box(title="Description",width = 12,solidHeader = TRUE, status = "primary",collapsible = TRUE,collapsed = TRUE,"Above graph plots the count of incidents reported at various premises. It is quite clear that streets, single family dwelling properties and multi family dwelling properties are most severely affected. Whereas drug stores, alleys and high schools account for the lowest number of incidents.")
+            ),
+            fluidRow(
+              box(width = 12,plotOutput("premise_desc"))
+            ),
+            fluidRow(
+              box(title="Description",width = 12,solidHeader = TRUE, status = "primary",collapsible = TRUE,collapsed = TRUE,"This graph further decomposes the crime incidents for the top five most affected premises. It is seen that vehicle stealing and theft from vehicles are the most common crimes that occur on streets.")
+            )
+    ),
+    
+    tabItem(tabName="misc",
+            fluidRow(box(width=12,title = "Count of Incidents and Weapon Description",collapsible = TRUE,collapsed = TRUE,solidHeader = TRUE,status = "primary",selectInput("topn","Select the top n:",c("5","10","15","20","25"),selected = 10,multiple = FALSE),h5("This graph shows the most used weapons. It is evident that bodily force like hands and fists are most used. These are followed by verbal threats."))),
+            fluidRow(box(width=12,plotOutput("misc_weapon"))),
+            fluidRow(box(width=12,title = "Crime Trend Over the years",collapsible = TRUE,collapsed = TRUE,solidHeader = TRUE,status = "primary",sliderInput("yearsr", "Select Year Range:",
+                                                                                                     min = 2010, max = 2017,
+                                                                                                     value = c(2010,2017), step = 1,sep = ""),h5("This graph analyses the trend of crimes reported over the years. While the graph shows a dip during 2014, there has been a steady increase in crimes since then."))),
+            fluidRow(box(width = 12,plotOutput("misc_trend")))
+    )
+    
+  ))
+
+
+
+
+ui <- dashboardPage(
+  dashboardHeader(title = "APAAR"),
+  sidebar,
+  body
+)
+
+server <- function(input, output) {
+  set.seed(122)
+  histdata <- rnorm(500)
+  
+  observeEvent(input$do, {
+    output$mytable = DT::renderDataTable({
+      crimedatanew
+    })
+  })
+  
+  output$mytable = DT::renderDataTable({
+    Crime_Data_2010_2017
+  })
+  
+  output$plot1 <- renderPlot({
+    data <- histdata[seq_len(input$slider)]
+    hist(data)
+  })
+  output$graph<-renderPlot(
+    
+    {Crime_Data_2010_2017$DayOfCrime =  wday(mdy(Crime_Data_2010_2017$`Date Occurred`),label = TRUE)
+    
+    Crime_Data_2010_2017 %>%
+      group_by(DayOfCrime) %>%
+      summarise(CountIncidents = n()) %>%
+      mutate(DayOfCrime = reorder(DayOfCrime,CountIncidents)) %>%
+      
+      ggplot(aes(x = DayOfCrime,y = CountIncidents)) +
+      geom_bar(stat='identity',colour="white", fill ="steelblue") +
+      geom_text(aes(x = DayOfCrime, y = 1, label = paste0("(",CountIncidents,")",sep="")),
+                hjust=0, vjust=.5, size = 4, colour = 'white',
+                fontface = 'bold') +
+      labs(x = 'Day Of Crime', y = 'Count of Incidents', 
+           title = 'Day wise') +
+      coord_flip() +
+      theme_bw()})
+  
+  output$bytime_most<-renderPlot({Crime_Data_2010_2017 %>%
+      group_by(`Time Occurred`) %>%
+      summarise(CountIncidents = n()) %>%
+      arrange(desc(CountIncidents)) %>%
+      mutate(`Time Occurred` = as.integer(`Time Occurred`)) %>%
+      mutate(`Time Occurred` = reorder(`Time Occurred`,CountIncidents)) %>%
+      head(10) %>%
+      
+      ggplot(aes(x = `Time Occurred`,y = CountIncidents)) +
+      geom_bar(stat='identity',colour="white",fill="steelblue") +
+      geom_text(aes(x = `Time Occurred`, y = 1, label = paste0("(",CountIncidents,")",sep="")),
+                hjust=0, vjust=.5, size = 4, colour = 'white',
+                fontface = 'bold') +
+      labs(x = 'Time Of Crime', y = 'Count of Incidents', 
+           title = 'Most Crimes') +
+      coord_flip() + 
+      theme_bw()})
+  
+  output$bytime_least<-renderPlot({Crime_Data_2010_2017 %>%
+      group_by(`Time Occurred`) %>%
+      summarise(CountIncidents = n()) %>%
+      arrange(desc(CountIncidents)) %>%
+      mutate(`Time Occurred` = as.integer(`Time Occurred`)) %>%
+      mutate(`Time Occurred` = reorder(`Time Occurred`,CountIncidents)) %>%
+      tail(10) %>%
+      
+      ggplot(aes(x = `Time Occurred`,y = CountIncidents)) +
+      geom_bar(stat='identity',colour="white", fill ="steelblue") +
+      geom_text(aes(x = `Time Occurred`, y = 1, label = paste0("(",CountIncidents,")",sep="")),
+                hjust=0, vjust=.5, size = 4, colour = 'white',
+                fontface = 'bold') +
+      labs(x = 'Time Of Crime', y = 'Count of Incidents', 
+           title = 'Least Crimes') +
+      coord_flip() + 
+      theme_bw()})
+  
+  
+  output$bytime_at12 <- renderPlot({Crime_Data_2010_2017 %>%
+      filter(`Time Occurred` == 1200) %>%
+      group_by(`Crime Code Description`) %>%
+      summarise(CountIncidents = n()) %>%
+      arrange(desc(CountIncidents)) %>%
+      mutate(`Crime Code Description` = reorder(`Crime Code Description`,CountIncidents)) %>%
+      head(10) %>%
+      
+      ggplot(aes(x = `Crime Code Description`,y = CountIncidents)) +
+      geom_bar(stat='identity',colour="white", fill = "steelblue") +
+      geom_text(aes(x = `Crime Code Description`, y = 1, label = paste0("(",CountIncidents,")",sep="")),
+                hjust=0, vjust=.5, size = 4, colour = 'white',
+                fontface = 'bold') +
+      labs(x = 'Time Of Crime', y = 'Count of Incidents', 
+           title = 'Type of Crime at 1200 hrs') +
+      coord_flip() + 
+      theme_bw()})
+  
+  output$byas_sex<- renderPlot({Crime_Data_2010_2017 %>%
+      filter(!is.na(`Victim Sex`)) %>%
+      filter(`DOYear` %in% input$years) %>%
+      group_by(`Victim Sex`) %>%
+      tally() %>%
+      ungroup() %>%
+      mutate(`Victim Sex` = reorder(`Victim Sex`,n)) %>%
+      
+      ggplot(aes(x = `Victim Sex`,y = n)) +
+      geom_bar(stat='identity',colour="white", fill ="steelblue") +
+      geom_text(aes(x = `Victim Sex`, y = 1, label = paste0("(",n,")",sep="")),
+                hjust=0, vjust=.5, size = 4, colour = 'black',
+                fontface = 'bold') +
+      labs(x = 'Sex', y = 'Count of Incidents', 
+           title = 'Count of Incidents and Sex') +
+      coord_flip() + 
+      theme_bw()})
+  
+  output$byas_agesex<-renderPlot({breaks = seq(0,100,5)
+  
+  ListSex = c("M","F")
+  
+  Crime_Data_2010_2017 %>%
+    filter(`DOYear` %in% input$years1) %>%
+    filter( `Victim Sex` %in% ListSex ) %>%
+    ggplot(aes(`Victim Age`)) +
+    geom_histogram(binwidth = 5,fill = "steelblue") +
+    facet_wrap(~ `Victim Sex`) +
+    scale_x_continuous(limits = c(input$age[1], input$age[2]),breaks=breaks ) +
+    labs(x = 'Victim Age', y = 'Count of Crimes', 
+         title = 'Age , Sex and Crimes') +
+    theme_bw()})
+  
+  output$byas_sexdesc<-renderPlot({Crime_Data_2010_2017 %>%
+      filter(!is.na(`Victim Sex`)) %>%
+      group_by(`Victim Sex`,`Crime Code Description`) %>%
+      tally() %>%
+      ungroup() %>%
+      mutate(`Victim Sex` = reorder(`Victim Sex`,n)) %>%
+      arrange(desc(n)) %>%
+      head(10) %>%
+      
+      ggplot(aes(x = `Victim Sex`,y = n, fill =`Crime Code Description`)) +
+      geom_bar(stat='identity') +
+      labs(x = 'Sex and Crime Description', y = 'Count of Incidents', 
+           title = 'Count of Incidents and Sex and Crime Description') +
+      coord_flip() + 
+      theme_bw() + theme(legend.position="top")
+  })
+  
+  output$byas_above70<-renderPlot({Crime_Data_2010_2017 %>%
+      filter(!is.na(`Victim Sex`)) %>%
+      
+      filter(`Victim Age` >= input$ageinp) %>%
+      group_by(`Victim Sex`,`Crime Code Description`) %>%
+      tally() %>%
+      ungroup() %>%
+      mutate(`Victim Sex` = reorder(`Victim Sex`,n)) %>%
+      arrange(desc(n)) %>%
+      head(10) %>%
+      
+      ggplot(aes(x = `Victim Sex`,y = n,fill = `Crime Code Description`)) +
+      geom_bar(stat='identity') +
+      labs(x = 'Sex and Crime Description', y = 'Count of Incidents', 
+           title = 'Count of Incidents, Sex and Crime Description for a certain age and above') +
+      coord_flip() + 
+      theme_bw() + theme(legend.position="top")})
+  
+  output$maps_heat<-renderLeaflet({
+    filter(Crime_Data_2010_2017,Crime_Data_2010_2017$DOYear >= 2010)
+    center_lon = median(Crime_Data_2010_2017$longitude,na.rm = TRUE)
+    center_lat = median(Crime_Data_2010_2017$latitude,na.rm = TRUE)
+    
+    LACrimeSample = Crime_Data_2010_2017 %>% filter(DOYear %in% input$yearsm) %>% sample_n(1000*length(input$yearsm))
+    
+    leaflet(LACrimeSample) %>% 
+      addProviderTiles("Esri.NatGeoWorldMap") %>%
+      addCircles(lng = ~longitude, lat = ~latitude, 
+                 color = c("blue"))  %>%
+      # controls
+      setView(lng=center_lon, lat=center_lat, zoom=12)
+  })
+  
+  output$premise_count<- renderPlot({Crime_Data_2010_2017 %>%
+      filter(!is.na(`Premise Description`)) %>%
+      group_by(`Premise Description`) %>%
+      tally() %>%
+      ungroup() %>%
+      mutate(`Premise Description` = reorder(`Premise Description`,n)) %>%
+      arrange(desc(n)) %>%
+      head(20) %>%
+      
+      ggplot(aes(x = `Premise Description`,y = n)) +
+      geom_bar(stat='identity',colour="white", fill ="steelblue") +
+      geom_text(aes(x = `Premise Description`, y = 1, label = paste0("(",n,")",sep="")),
+                hjust=0, vjust=.5, size = 4, colour = 'black',
+                fontface = 'bold') +
+      labs(x = 'PremiseDescription', y = 'Count of Incidents', 
+           title = 'Count of Incidents and PremiseDescription') +
+      coord_flip() + 
+      theme_bw()
+  })
+  
+  output$premise_desc<-renderPlot({Crime_Data_2010_2017 %>%
+      filter(!is.na(`Premise Description`)) %>%
+      group_by(`Premise Description`,`Crime Code Description`) %>%
+      tally() %>%
+      ungroup() %>%
+      mutate(`Premise Description` = reorder(`Premise Description`,n)) %>%
+      arrange(desc(n)) %>%
+      head(10) %>%
+      
+      ggplot(aes(x = `Premise Description`,y = n, fill =`Crime Code Description`)) +
+      geom_bar(stat='identity') +
+      labs(x = 'Premise Description and Crime Description', y = 'Count of Incidents', 
+           title = 'Count of Incidents and Premise Description and Crime Description') +
+      coord_flip() + 
+      theme_bw()})
+  
+  output$misc_weapon<-renderPlot({Crime_Data_2010_2017 %>%
+      filter(!is.na(`Weapon Description`)) %>%
+      group_by(`Weapon Description`) %>%
+      tally() %>%
+      ungroup() %>%
+      arrange(desc(n)) %>%
+      head(input$topn) %>%
+      mutate(`Weapon Description` = reorder(`Weapon Description`,n)) %>%
+      
+      ggplot(aes(x = `Weapon Description`,y = n)) +
+      geom_bar(stat='identity',colour="white", fill ="steelblue") +
+      geom_text(aes(x = `Weapon Description`, y = 1, label = paste0("(",n,")",sep="")),
+                hjust=0, vjust=.5, size = 4, colour = 'black',
+                fontface = 'bold') +
+      labs(x = 'Weapon Description', y = 'Count of Incidents', 
+           title = 'Count of Incidents and Weapon Description') +
+      coord_flip() + 
+      theme_bw()})
+  
+  output$byas_descentcount<-renderPlot({VictimDescentAbbr = c("A","B","C","D","F","G","H","I","J","K","L","O","P","S","U","V","W","X","Z")
+  VictimDescentDescription = c("Other Asian","Black",
+                               "Chinese","Cambodian","Filipino",
+                               "Guamanian","Hispanic/Latin/Mexican",
+                               "American Indian/Alaskan Native",
+                               "Japanese","Korean","Laotian ",
+                               "Other","Pacific Islander",
+                               "Samoan","Hawaiian","Vietnamese",
+                               "White","Unknown","AsianIndian")
+  
+  VictimDescentFull = data.frame(`Victim Descent` = as.character(VictimDescentAbbr),
+                                 VictimDescentDescription = as.character(VictimDescentDescription))
+  colnames(VictimDescentFull)=c("Victim Descent","VictimDescentDescription")
+  Crime_Data_2010_2017$`Victim Descent` = as.character(Crime_Data_2010_2017$`Victim Descent`)
+  Crime_Data_2010_2017 %>%
+    filter(!is.na(`Victim Descent`)) %>%
+    filter(`DOYear` %in% input$years2) %>%
+    group_by(`Victim Descent`) %>%
+    tally() %>%
+    ungroup() %>%
+    arrange(desc(n)) %>%
+    inner_join(VictimDescentFull) %>%
+    head(10) %>%
+    mutate(VictimDescentDescription = reorder(VictimDescentDescription,n)) %>%
+    
+    ggplot(aes(x = VictimDescentDescription,y = n)) +
+    geom_bar(stat='identity',colour="white", fill ="steelblue") +
+    geom_text(aes(x = VictimDescentDescription, y = 1, label = paste0("(",n,")",sep="")),
+              hjust=0, vjust=.5, size = 4, colour = 'black',
+              fontface = 'bold') +
+    labs(x = 'VictimDescent', y = 'Count of Incidents', 
+         title = 'Count of Incidents and VictimDescent') +
+    coord_flip() + 
+    theme_bw()
+  })
+  
+  output$misc_trend<-renderPlot({LACrimeGroup = Crime_Data_2010_2017 %>%
+    filter(DOYear >= input$yearsr[1]) %>%
+    filter(DOYear < input$yearsr[2]) %>%
+    mutate(year_month = make_date(year=year(mdy(`Date Occurred`)),month=month(mdy(`Date Occurred`))) ) %>% 
+    filter(!is.na(year_month)) %>%
+    group_by(year_month) %>% summarize(CountCrimes = n()) 
+  
+  LACrimeGroup %>% filter(year_month != "2017-09-01") %>%
+    
+    ggplot(aes(x=year_month,y=CountCrimes)) + 
+    geom_line(size=.5, color="red")+geom_point(size=2, color="red")+ 
+    labs(x = 'Year', y = 'Count of Incidents', 
+         title = 'Crime Trend Over the years') + 
+    theme_bw()
+  })
+  
+  
+  output$pred_arima<-renderPlot({LACrimeGroupBatterySA = Crime_Data_2010_2017 %>% 
+    filter(`Crime Code` == 624) %>%
+    mutate(year_month = make_date(year=year(mdy(`Date Occurred`)),month=month(mdy(`Date Occurred`))) ) %>% 
+    
+    filter(!is.na(year_month)) %>%
+    filter(year_month != "2017-09-01") %>%
+    
+    group_by(year_month) %>% 
+    summarize(CountCrimes = n()) 
+  CountOfCrimes = ts(LACrimeGroupBatterySA$CountCrimes)
+  
+  fit = auto.arima(CountOfCrimes,stepwise=FALSE, approximation=FALSE)
+  
+  predictions = fit %>% forecast(h=4)
+  
+  predictions %>% autoplot(include=80) +theme_bw()
+  
+  })
+  
+  output$byas_sexweapon<-renderPlot({Crime_Data_2010_2017 %>%
+      
+      filter(!is.na(`Victim Sex`)) %>%
+      filter(!is.na(`Weapon Description`)) %>%
+      group_by(`Victim Sex`,`Weapon Description`) %>%
+      tally() %>%
+      ungroup() %>%
+      mutate(`Victim Sex` = reorder(`Victim Sex`,n)) %>%
+      arrange(desc(n)) %>%
+      head(10) %>%
+      ggplot(aes(x = `Victim Sex`,y = n, fill =`Weapon Description`)) +
+      geom_bar(stat='identity') +
+      labs(x = 'Sex and Weapon Description', y = 'Count of Incidents', 
+           title = 'Count of Incidents and Sex and Weapon Used') +
+           coord_flip() + 
+          theme_bw() + theme(legend.position="top")
+    })
+  
+}
+
+shinyApp(ui, server)
+
+
+
+
+
