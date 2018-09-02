@@ -1,0 +1,267 @@
+			Importing Dataset to RStudio
+library(readr)
+Crime_Data_2010_2017 <- read_csv(FileLocation)
+MO_Codes <- read_csv(FileLocation)
+View(Crime_Data_2010_2017)
+View(MO_Codes)
+ ALT : 
+lapd.full<-read.csv("Crime_Data_2010_2017.csv",stringsAsFactors = FALSE,header=TRUE)
+table(lapd.full$Area.ID)
+
+Converting dataset to dataframe
+
+crimedata <- as.data.frame.matrix(Crime_Data_2010_2017) 
+
+
+Creating subset of dataset
+
+crimedata$`Date Reported` <- as.Date(Crime_Data_2010_2017$`Date Reported`, "%m/%d/%Y")
+crime <- subset(crimedata , format.Date(crimedata$`Date Reported`, "%y")=="13")
+
+
+Getting the count of missing attributes 
+
+table(is.na(lapd.full$'Crime.Code.3'))
+# For other attributes just replace the name of the attribute in place of ‘Crime Code 4’
+
+
+
+
+NOTE
+For installing any package rstudio which is not available directly follow :
+-> Go to https://cran.r-project.org/web/packages/PACKAGENAME/index.html
+-> replace PACKAGENAME with the desired one to be installed.
+-> save the source file available in that page.
+-> in rstudio got to Tools->Install Packages and browse the saved file.
+-> click install
+
+
+
+Preprocessing 
+Separate Latitude and Longitude from Location Field
+LACrime_latlong = gsub('\\(','',Crime_Data_2010_2017_csv$Location)
+LACrime_latlong = gsub('\\)','',LACrime_latlong)
+LACrime_latlong = strsplit(LACrime_latlong,",") -- use package stringr & stringi
+LACrime_latlong = do.call(rbind.data.frame, LACrime_latlong)
+colnames(LACrime_latlong) = c("latitude","longitude")
+View(LACrime_latlong)
+Crime_Data_2010_2017_csv$Latitude  =         as.numeric(as.character(LACrime_latlong$latitude)) 
+Crime_Data_2010_2017_csv$longitude = as.numeric(as.character(LACrime_latlong$longitude))
+rm(LACrime_latlong)
+Crime_Data_2010_2017_csv$Location = NULL
+
+Rename fields to remove spaces 
+names(Crime_Data_2010_2017_csv)[names(Crime_Data_2010_2017_csv) == "DR Number"] <- "DRNumber" (likewise all)
+
+
+Filling Crime Code 1 with Crime Code 2
+
+table(is.na(lapd.full$'Crime.Code.3'))
+lapd.statusCode<- lapd.full[lapd.full$Status.Code=='',]   ##Getting all tuples with blank status code
+lapd.Code1$Crime.Code.1<- lapd.Code1$Crime.Code.2
+
+Chi-Square Test for Correlation
+conttable_premisecode <- table(Crime_Data_2010_2017_csv$CrimeCode, Crime_Data_2010_2017_csv$PremiseCode) - done on premise code
+contdataframe <- as.data.frame.matrix(conttable_premisecode)
+chisq <- chisq.test(conttable_premisecode)
+install.packages("corrplot")
+library(corrplot)
+corrplot(chisq$residuals, is.cor = FALSE)  - for plotting the correlation between two variables
+
+
+
+
+
+#Predicting Age
+upper.whisker<- boxplot.stats(titanic.full$Age)$stats[5] 
+outlier.filter<- titanic.full$Age < upper.whisker
+
+age.equation="Age ~ Pclass + Sex + SibSp + Parch"
+
+age.model<-lm(
+  formula=age.equation,
+  data=titanic.full[outlier.filter,]
+)
+
+age.row<-titanic.full[
+  is.na(titanic.full$Age),
+  c("Pclass","Sex","SibSp","Parch")]
+
+age.prediction<-predict(age.model, newdata=age.row)
+
+titanic.full[is.na(titanic.full$Age),"Age"]<-age.prediction
+
+
+lapd.full<- lapd.full[!is.na(lapd.full$Location),] 
+
+
+
+
+
+
+##Creating a separate csv for Crime code desc. mapped to crime code & Premise Description to Premise Code 
+PremiseCode<- unique(crimedata[c("Premise Code", "Premise Description")])
+PremiseCode[is.na(PremiseCode$`Premise Description`),"Premise Description"] <-"UNK"
+write.csv(PremiseCode, "Premise_Desc.csv")
+CrimeCodeDesc <- unique(crimedata[c("Crime Code", "Crime Code Description")])
+CrimeCodeDesc[is.na(CrimeCodeDesc$`Crime Code Description`),"Crime Code Description"] <- "UNK"
+write.csv(CrimeCodeDesc, "Crime_Code_Desc.csv")
+
+
+
+
+-------- As Suggested By Vandan Maam --------
+Feature analysis
+Principal Component subselection
+Svd
+Feature selection
+
+
+
+
+is. na(Attribute)
+Crime Code Desc
+MO Codes
+Victim Age
+Victim Sex
+Victim Descent
+Premise Description
+FALSE
+1307227
+1412557
+1455647
+1439108
+1439075
+1305255
+TRUE
+340
+0
+128658
+145197
+145230
+2312
+
+
+Premise Code
+Weapon Used Code
+Weapon Description
+Status Code/Desc
+Crime Code 2
+Crime Code 1
+Cross Street
+Location
+1307567
+524757
+524756
+1584314
+99997
+1584309
+262733
+1584307
+0
+1059559
+1059560
+29-UNK
+1484319
+7(0)
+1321583
+9-removed
+
+
+
+
+//finding uncommon values between two vectors
+setdiff(CrimeCodeDesc$`Crime Code`, CrimeCodeDescNew$`Crime Code`)
+
+------------------ Adjusting rows containing vehicle stolen ------------------
+
+Crime_Data_2010_2017[which(Crime_Data_2010_2017$`Crime Code`==510),"Victim Age"] <- "00"
+Crime_Data_2010_2017[which(Crime_Data_2010_2017$`Crime Code`==510),"Victim Sex"] <- "X"
+Crime_Data_2010_2017[which(Crime_Data_2010_2017$`Crime Code`==510),"Victim Descent"] <- "X"
+Crime_Data_2010_2017[which(Crime_Data_2010_2017$`Crime Code`==510),"MO Codes"] <- "UNK"
+
+
+// Regression tree algorithm
+library(rpart)
+library(rpart.plot)
+
+lapd1trainfull<-lapd1[!is.na(lapd1$`Victim Age`),]
+smp_size <- floor(0.70 * nrow(lapd1trainfull))
+set.seed(123)
+lapd1train1 <- sample(seq_len(nrow(lapd1trainfull)), size = smp_size)
+train <- lapd1trainfull[lapd1train1, ]
+test <- lapd1trainfull[-lapd1train1, ]
+
+m1<- rpart(`Victim Age` ~ .,data=train, method="anova")
+rpart.plot(m1, type=3,digits=3, fallen.leaves=TRUE)
+p1<-predict(m1,test)
+MAE<-function(actual, predicted) {mean(abs(actual-predicted))}
+MAE(train$`Victim Age`,p1)
+confMat <- table(test$`Victim Age`,p1)
+accuracy <- sum(diag(confMat))/sum(confMat)
+
+// Calculating Gini Index
+
+
+// For separating date column into its constituents
+df <- data.frame(date = datetxt,
+             	year = as.numeric(format(datetxt, format = "%Y")),
+             	month = as.numeric(format(datetxt, format = "%m")),
+             	day = as.numeric(format(datetxt, format = "%d")))
+
+
+
+//To separate date columns into y,m and d
+library(dplyr)
+library(tidyr)
+Crime_Data_2010_2017<-separate(Crime_Data_2010_2017,"Date Reported",c("DRMonth","DRDay","DRYear"),sep="/");
+Crime_Data_2010_2017<-separate(Crime_Data_2010_2017,"Date Occurred",c("DOMonth","DODay","DOYear"),sep="/");
+
+// Regression tree(17-02-2018)
+//Aditya’s room
+lapd<-Crime_Data_2010_2017[c("DRMonth","DRDay","Area ID")]
+smp_size <- floor(0.00070 * nrow(lapd))
+set.seed(123)
+smp_size <- floor(0.00070 * nrow(lapd))
+lapdtrain1 <- sample(seq_len(nrow(lapd)), size = smp_size)
+train <- lapd[lapdtrain1, ]
+test <- c(3,16)
+
+
+m1<- rpart(`Area ID` ~ .,data=train, method="class")
+rpart.plot(m1, type=3,digits=3, fallen.leaves=TRUE)
+p1<-predict(m1,test)
+MAE<-function(actual, predicted) {mean(abs(actual-predicted))}
+MAE(train$`Crime Code`,p1)
+confMat <- table(test$`Crime Code`,p1)
+accuracy <- sum(diag(confMat))/sum(confMat)
+
+
+
+
+
+
+
+
+
+
+
+//Naive Bayes Classifier for predicting categorical variables
+install.packages("e1071")
+library(e1071)
+#(train)
+VictimSexWithoutNA <- Crime_Data_2010_2017[!is.na(Crime_Data_2010_2017$`Victim Sex`),]
+#(test)
+VictimSexNA <- Crime_Data_2010_2017[is.na(Crime_Data_2010_2017$`Victim Sex`),]
+#(train)
+VictimSexWithoutNA <- VictimSexWithoutNA[!VictimSexWithoutNA$`Victim Sex` == "-",]
+#NOTE :  Now ensure that all input variables are numeric type and output variable is #factor type
+VictimSexWithoutNA$`Victim Sex` <- gsub("M", "1", VictimSexWithoutNA$`Victim Sex`)
+VictimSexWithoutNA$`Victim Sex` <- gsub("F", "2", VictimSexWithoutNA$`Victim Sex`)
+VictimSexWithoutNA$`Victim Sex` <- gsub("H", "3", VictimSexWithoutNA$`Victim Sex`)
+VictimSexWithoutNA$`Victim Sex` <- gsub("X", "4", VictimSexWithoutNA$`Victim Sex`)
+model <- naiveBayes(class ~ ., data = traindataset)
+#(dataset$attr)
+preds <- predict(model, newdata = testdataset)
+conf_matrix <- table(preds, breast_cancer$class)
+
